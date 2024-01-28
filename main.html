@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title> Truth Table </title>
+  </head>
+  <style>
+    h1,
+    h2 {
+      text-align: center;
+      line-height: 1;
+      font-family: Andale Mono, monospace;
+    }
+
+    p {
+      font-size: 14px;
+      line-height: 1.5;
+      margin: 0;
+      padding: 0;
+      font-family: Andale Mono, monospace;
+    }
+
+    fieldset {
+      background-color: #9999ff;
+      padding: 8;
+      displ ay: inline-block;
+      text-align: center;
+      border-radius: 11px;
+      border: 0;
+      font-family: Andale Mono, monospace;
+    }
+
+    input {
+      padding: 7px;
+      border: 0;
+      box-shadow: rgba(27, 31, 35, .1) 0 3px 0;
+      border-radius: 10px;
+      font-family: monospace;
+      margin-top: auto;
+      margin-bottom: auto;
+      display: block;
+      margin: 1.0em auto;
+    }
+
+    button {
+      background-color: #2631C3;
+      border: 1px solid rgba(27, 31, 35, .15);
+      border-radius: 6px;
+      box-shadow: rgba(27, 31, 35, .1) 0 3px 0;
+      color: #fff;
+      cursor: pointer;
+      font-family: Andale Mono, monospace;
+      font-size: 15px;
+      font-weight: 600;
+      line-height: 20px;
+      padding: 5px 15px;
+      position: relative;
+      text-align: center;
+      margin-top: auto;
+      display: block;
+      margin: 1.0em auto;
+      margin-bottom: auto;
+    }
+
+    body {
+      background-color: #CCCCFF;
+      margin: 0;
+      border: 15px solid #2631C3;
+      padding: 80px;
+      text-align: center;
+      box-sizing: border-box;
+      min-height: 100vh;
+    }
+
+    table {
+      margin: 25px 0;
+      font-size: 2rem;
+      font-family: Courier New, monospace;
+      min-width: 7rem;
+      text-align: center;
+      vertical-align: center;
+      margin-left: auto;
+      margin-right: auto;
+      border: 0px;
+      border-collapse: collapse;
+    }
+
+   th, td {
+  border-bottom: 1px solid black;
+}
+    tr:hover {
+    	
+     background-color: #9999ff;
+
+    }
+   tr:first-child td {
+   	font-family: monospace		;
+     font-weight: 600;
+}
+
+  </style>
+  
+  <body>
+    <h1>Truth Table</h1>
+    <p>Use "^" for conjunction, "|" for disjunction, "!" for negation, "&gt;" for implication and "=" for bi-implication.</p>
+    <br>
+    <fieldset>
+      <input id="input" type="text" name="userInput" value="p^q" onkeydown='if (event.keyCode === 13) document.getElementById("process").click()'>
+      <button type="button" id="process" onclick="generateTruthTable()">Process Input</button>
+    </fieldset>
+    
+    <p id="result"></p>
+    <table id="truthTable"></table>
+    <h2 id="error" style="color:red"></h2>
+    <script>
+      function generateTruthTable() {
+        // clear the print statements
+        document.getElementById('error').innerText = "";
+        document.getElementById('result').innerText = "";
+        document.getElementById('truthTable').innerHTML = "";
+        
+        // sanitize input
+        var prop = document.getElementById('input').value;
+        var cleanProp = "";
+        for (let i = 0; i < prop.length; i++) {
+          if (prop[i] == " ") {
+            continue;
+          } else {
+            if (!("()abcdefghijklmnopqrstuvwxyz^|>=!".includes(prop[i]))) {
+              document.getElementById('error').innerText = "PSYCHO";
+              return;
+            }
+            cleanProp = cleanProp.concat(prop[i]);
+          }
+        }
+        document.getElementById('result').innerText = cleanProp;
+        prop = cleanProp;
+        
+        // convert to Reverse Polish Notation
+        var output = [];
+        var operator = [];
+        for (let i = 0; i < prop.length; i++) {
+          if ("abcdefghijklmnopqrstuvwxyz".includes(prop[i])) {
+            output.push(prop[i]);
+          } else if ("(^|!>=".includes(prop[i])) {
+            operator.push(prop[i]);
+          } else if (prop[i] == ")") {
+            while (operator[operator.length - 1] != "(") {
+              if (operator.length == 0) {
+                document.getElementById('error').innerText = "PSYCHO";
+                return;
+              } else {
+                output.push(operator.pop());
+              }
+            }
+            operator.pop();
+          }
+        }
+        while (operator.length != 0) {
+          // check parentheses
+          if (operator[operator.length - 1] == '(') {
+            document.getElementById('error').innerText = "PSYCHO";
+            return;
+          }
+          output.push(operator.pop());
+        }
+        document.getElementById('result').innerText = output;
+        
+        // identify the variables in the proposition
+        var variables = [];
+        for (let token of output) {
+          if ("abcdefghijklmnopqrstuvwxyz".includes(token)) {
+            if (!(variables.includes(token))) {
+              variables.push(token);
+            }
+          }
+        }
+        
+        // initialize truth table (2D array) with header row of variables + result column
+        var table = [variables.slice()];
+        table[0].push("*");
+        
+        for (let i = 0; i < 2 ** (variables.length); i++) {
+          /* generate truth assignments by interpreting the binary representation of i
+          as assigning 0s and 1s to each respective variable */
+          var truthAssignments = i.toString(2);
+          while (truthAssignments.length < variables.length) {
+            truthAssignments = "0".concat(truthAssignments);
+          }
+          
+          // calculate truth values
+          var operands = [];
+          for (let token of output) {
+            if ("^|>=".includes(token)) {
+              var op2 = operands.pop();
+              var op1 = operands.pop();
+              operands.push(calculate(token, op1, op2, truthAssignments, variables) ? 1 : 0);
+            } else if (token == "!") {
+              operands.push(calculate(token, operands.pop(), null, truthAssignments, variables) ? 1 : 0);
+            } else {
+              operands.push(token);
+            }
+          }
+          // add a row to table array with columns for the variables and for the result
+          table.push(truthAssignments.split(""));
+          table[i + 1].push(operands.pop());
+        }
+        createTable(table);
+      }
+
+      function calculate(token, op1, op2, truthAssignments, variables) {
+        // unpack the truth assignment of each variable for this iteration
+        if (op1 != 1 && op1 != 0) {
+          op1 = parseInt(truthAssignments[variables.indexOf(op1)]);
+        }
+        if (op2 != 1 && op2 != 0) {
+          op2 = parseInt(truthAssignments[variables.indexOf(op2)]);
+        }
+        if (token == "^") {
+          return op1 && op2;
+        } else if (token == "|") {
+          return op1 || op2;
+        } else if (token == ">") {
+          return !op1 || op2;
+        } else if (token == "=") {
+          return (op1 && op2) || (!op1 && !op2);
+        } else if (token == "!") {
+          return !op1;
+        }
+      }
+
+      function createTable(tableData) {
+        // set up the truth table in the currently empty #truthTable
+        var table = document.getElementById('truthTable');
+        var tableBody = document.createElement('tbody');
+        tableData.forEach(function(rowData) {
+          var row = document.createElement('tr');
+          rowData.forEach(function(cellData) {
+            var cell = document.createElement('td');
+            cell.appendChild(document.createTextNode(cellData));
+            row.appendChild(cell);
+          });
+          tableBody.appendChild(row);
+        });
+        table.appendChild(tableBody);
+        document.body.appendChild(table);
+      }
+    </script>
+  </body>
+</html>
+
+
+<!--  img {
+      text-align: left;
+      display: block;
+      top: -30px;
+      margin-left: 10px;
+      margin-right: 15px;
+      position: absolute;
+      margin-top: 35px;
+    } <h1><a href="https://lh3.googleusercontent.com/pw/ABLVV85bqC3QEZCZk_PxY-tKm-S4CdLw6m_L-YzHcImRqmch-uud0K5fQKXrgCpvDovmKQ_BITzDbs_f_y-ECyYcx-h_Dp6RFQyAM2N50p5gR-jhVHPc-CM=w2400?source=screenshot.guru"><img border="0" alt="Math" src="https://lh3.googleusercontent.com/pw/ABLVV85bqC3QEZCZk_PxY-tKm-S4CdLw6m_L-YzHcImRqmch-uud0K5fQKXrgCpvDovmKQ_BITzDbs_f_y-ECyYcx-h_Dp6RFQyAM2N50p5gR-jhVHPc-CM=w600-h314-p-k" width="85" height="55" style="top: 12; " /></a><pre><font color="#FF0000"> IS</font><font color="#BBE601">SO</font><font color="#00CDE3">FUN</font><font color="#FFD900">!</font></pre></h1></div>
+-->
