@@ -177,7 +177,7 @@
         
         // initialize truth table (2D array) with header row of variables + result column
         var table = [variables.slice()];
-        table[0].push("*");
+        table[0].push("✭");
         
         for (let i = 0; i < 2 ** (variables.length); i++) {
           /* generate truth assignments by interpreting the binary representation of i
